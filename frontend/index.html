@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GSU C Compiler</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 12px 20px;
+      background: #181825;
+      border-bottom: 1px solid #313244;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 { font-size: 1rem; font-weight: 600; color: #cba6f7; }
+
+    #run-btn {
+      padding: 6px 20px;
+      background: #a6e3a1;
+      color: #1e1e2e;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #run-btn:hover { background: #94d89f; }
+    #run-btn:disabled { background: #45475a; color: #6c7086; cursor: not-allowed; }
+
+    #status {
+      font-size: 0.8rem;
+      color: #6c7086;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid #313244;
+    }
+
+    .pane:last-child { border-right: none; }
+
+    .pane-label {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6c7086;
+      background: #181825;
+      border-bottom: 1px solid #313244;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    #editor-container {
+      flex: 1;
+      overflow: auto;
+    }
+
+    /* CodeMirror theme overrides */
+    .cm-editor { height: 100%; font-size: 0.9rem; }
+    .cm-scroller { overflow: auto; }
+    .cm-focused { outline: none; }
+
+    #output {
+      flex: 1;
+      padding: 12px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #11111b;
+      color: #cdd6f4;
+    }
+
+    #output .label {
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    #output .section { margin-bottom: 14px; }
+    #output .label.stdout { color: #a6e3a1; }
+    #output .label.stderr { color: #f38ba8; }
+    #output .label.meta   { color: #89b4fa; }
+    #output .empty        { color: #45475a; font-style: italic; }
+    #output .error-msg    { color: #f38ba8; }
+    #output .placeholder  { color: #45475a; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>GSU C Compiler</h1>
+  <button id="run-btn">Run</button>
+  <span id="status"></span>
+</header>
+
+<main>
+  <div class="pane">
+    <div class="pane-label">Source — main.c</div>
+    <div id="editor-container"></div>
+  </div>
+
+  <div class="pane">
+    <div class="pane-label">Output</div>
+    <div id="output"><span class="placeholder">Click Run to compile and execute your program.</span></div>
+  </div>
+</main>
+
+<script type="module">
+  import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6.0.1';
+  import { cpp } from 'https://esm.sh/@codemirror/lang-cpp@6.0.2';
+  import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
+
+  const HELLO_WORLD = `#include <stdio.h>
+
+int main() {
+    printf("hello, world\\n");
+    return 0;
+}
+`;
+
+  const view = new EditorView({
+    doc: HELLO_WORLD,
+    extensions: [basicSetup, cpp(), oneDark],
+    parent: document.getElementById('editor-container'),
+  });
+
+  const runBtn   = document.getElementById('run-btn');
+  const output   = document.getElementById('output');
+  const status   = document.getElementById('status');
+
+  function renderOutput(data) {
+    const sections = [];
+
+    sections.push(
+      `<div class="section">` +
+      `<div class="label stdout">stdout</div>` +
+      `<div>${data.stdout ? escHtml(data.stdout) : '<span class="empty">(empty)</span>'}</div>` +
+      `</div>`
+    );
+
+    sections.push(
+      `<div class="section">` +
+      `<div class="label stderr">stderr</div>` +
+      `<div>${data.stderr ? escHtml(data.stderr) : '<span class="empty">(empty)</span>'}</div>` +
+      `</div>`
+    );
+
+    const exitColor = data.exit_code === 0 ? '#a6e3a1' : '#f38ba8';
+    sections.push(
+      `<div class="section">` +
+      `<div class="label meta">info</div>` +
+      `<div>exit code: <span style="color:${exitColor}">${data.exit_code}</span>` +
+      (data.elapsed_ms !== undefined ? `  &nbsp; elapsed: ${data.elapsed_ms} ms` : '') +
+      `</div>` +
+      `</div>`
+    );
+
+    output.innerHTML = sections.join('');
+  }
+
+  function escHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  runBtn.addEventListener('click', async () => {
+    const code = view.state.doc.toString();
+
+    runBtn.disabled = true;
+    status.textContent = 'Compiling…';
+    output.innerHTML = '<span class="placeholder">Running…</span>';
+
+    try {
+      const res = await fetch('/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        output.innerHTML = `<span class="error-msg">HTTP ${res.status}: ${escHtml(text)}</span>`;
+        status.textContent = 'Error';
+        return;
+      }
+
+      const data = await res.json();
+      renderOutput(data);
+      status.textContent = `Done (${data.elapsed_ms ?? '?'} ms)`;
+    } catch (err) {
+      output.innerHTML = `<span class="error-msg">Network error: ${escHtml(err.message)}</span>`;
+      status.textContent = 'Failed';
+    } finally {
+      runBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

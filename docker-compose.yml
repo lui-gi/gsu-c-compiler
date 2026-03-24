@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - type: tmpfs
+        target: /tmp
+    environment:
+      - TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-10}
+      - MEMORY_MB=${MEMORY_MB:-64}
+      - RATE_LIMIT=${RATE_LIMIT:-10}
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    restart: unless-stopped
