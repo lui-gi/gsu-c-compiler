@@ -2,18 +2,31 @@
  * entrypoint.c — Sandbox entrypoint binary
  *
  * Compiles /sandbox/main.c to /tmp/a.out using gcc, then executes the
- * resulting binary under `timeout 5`. No shell is required at runtime.
+ * resulting binary with a 5-second alarm-based timeout. No shell or
+ * external `timeout` binary is required at runtime.
  *
  * Exit codes:
- *   The exit code of `timeout /tmp/a.out` is forwarded as-is.
  *   If gcc fails, its exit code is forwarded.
+ *   If the program times out, exit code 124 is returned (matching the
+ *   convention used by the coreutils `timeout` command).
+ *   Otherwise, the program's own exit code is forwarded.
  */
 
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+static pid_t g_child_pid = -1;
+
+static void on_alarm(int sig) {
+    (void)sig;
+    if (g_child_pid > 0)
+        kill(g_child_pid, SIGKILL);
+}
 
 static int run(char *const argv[]) {
     pid_t pid = fork();
@@ -52,12 +65,43 @@ int main(void) {
         return rc;
     }
 
-    /* Step 2: run with timeout */
-    char *const run_args[] = {
-        "/usr/bin/timeout",
-        "5",
-        "/tmp/a.out",
-        NULL
-    };
-    return run(run_args);
+    /* Step 2: run with 5-second in-process timeout */
+    char *const exec_argv[] = { "/tmp/a.out", NULL };
+
+    g_child_pid = fork();
+    if (g_child_pid < 0) {
+        perror("fork");
+        return 1;
+    }
+    if (g_child_pid == 0) {
+        execv("/tmp/a.out", exec_argv);
+        perror("/tmp/a.out");
+        _exit(127);
+    }
+
+    /* Set up SIGALRM without SA_RESTART so waitpid is interrupted. */
+    struct sigaction sa;
+    sa.sa_handler = on_alarm;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGALRM, &sa, NULL);
+    alarm(5);
+
+    int wstatus;
+    int wret = waitpid(g_child_pid, &wstatus, 0);
+    alarm(0);
+
+    if (wret < 0) {
+        /* EINTR means SIGALRM fired and killed the child; collect it. */
+        waitpid(g_child_pid, &wstatus, 0);
+        return 124;
+    }
+
+    if (WIFEXITED(wstatus))   return WEXITSTATUS(wstatus);
+    if (WIFSIGNALED(wstatus)) {
+        /* SIGKILL from our own alarm handler → report as timeout. */
+        if (WTERMSIG(wstatus) == SIGKILL) return 124;
+        return 128 + WTERMSIG(wstatus);
+    }
+    return 1;
 }
