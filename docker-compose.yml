@@ -12,6 +12,12 @@ services:
       - TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-10}
       - MEMORY_MB=${MEMORY_MB:-64}
       - RATE_LIMIT=${RATE_LIMIT:-10}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   frontend:

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 import hashlib
 import logging
 
-from config import MAX_CODE_SIZE_BYTES, API_RATE_LIMIT
+from config import MAX_CODE_SIZE_BYTES, API_RATE_LIMIT, ALLOWED_ORIGINS
 from sandbox import run_in_sandbox
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -22,7 +22,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
