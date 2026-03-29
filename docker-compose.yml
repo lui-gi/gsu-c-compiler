@@ -5,14 +5,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp:/tmp
     environment:
       - TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-10}
-      - MEMORY_MB=${MEMORY_MB:-64}
       - RATE_LIMIT=${RATE_LIMIT:-10}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - LAMBDA_FUNCTION_NAME=${LAMBDA_FUNCTION_NAME:-gcc-sandbox}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Leave blank when running on EC2 with an IAM instance profile —
+      # boto3 will use the metadata service automatically.
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

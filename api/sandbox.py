@@ -1,114 +1,76 @@
-import subprocess
-import tempfile
-import uuid
-import os
+import json
 import time
-from pathlib import Path
+
+import boto3
+from botocore.config import Config
 
 from config import (
     MAX_OUTPUT_BYTES,
-    CONTAINER_MEMORY_MB,
-    CONTAINER_CPU_QUOTA,
-    CONTAINER_PIDS_LIMIT,
     COMPILE_TIMEOUT_S,
     EXEC_TIMEOUT_S,
-    SANDBOX_IMAGE,
+    LAMBDA_FUNCTION_NAME,
+    LAMBDA_REGION,
 )
 
-# Total wall-clock budget: compile + exec + a small buffer
-_TOTAL_TIMEOUT_S = COMPILE_TIMEOUT_S + EXEC_TIMEOUT_S + 2
+# boto3 read timeout must exceed the Lambda function timeout so the HTTP
+# connection is not dropped before the function has a chance to respond.
+_LAMBDA_TIMEOUT_S  = COMPILE_TIMEOUT_S + EXEC_TIMEOUT_S + 5
+_BOTO3_READ_TIMEOUT = _LAMBDA_TIMEOUT_S + 10
+
+_lambda_client = boto3.client(
+    "lambda",
+    region_name=LAMBDA_REGION,
+    config=Config(
+        read_timeout=_BOTO3_READ_TIMEOUT,
+        connect_timeout=5,
+        retries={"max_attempts": 0},  # never silently retry a timed-out invocation
+    ),
+)
 
 
 def run_in_sandbox(code: str) -> dict:
     """
-    Write `code` to an isolated temp directory, run it inside a hardened
-    Docker container, and return a result dict with keys:
-        stdout, stderr, exit_code, compile_error, elapsed_ms
+    Invoke the Lambda compiler function synchronously and return a result dict
+    with keys: stdout, stderr, exit_code, compile_error, elapsed_ms.
     """
-    job_id = str(uuid.uuid4())
-    container_name = f"sandbox-{job_id}"
+    payload = json.dumps({"code": code}).encode()
 
-    with tempfile.TemporaryDirectory(prefix=f"job-{job_id}-") as tmpdir:
-        src_path = Path(tmpdir) / "main.c"
-        src_path.write_text(code)
-
-        cmd = [
-            "docker", "run",
-            "--rm",
-            "--name", container_name,
-            f"--memory={CONTAINER_MEMORY_MB}m",
-            f"--cpus={CONTAINER_CPU_QUOTA}",
-            f"--pids-limit={CONTAINER_PIDS_LIMIT}",
-            "--network=none",
-            "--cap-drop=ALL",
-            "--read-only",
-            "--security-opt=no-new-privileges",
-            "-v", f"{tmpdir}:/sandbox:ro",
-            SANDBOX_IMAGE,
-        ]
-
-        start = time.monotonic()
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=_TOTAL_TIMEOUT_S,
-            )
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-
-            stdout = result.stdout[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
-            stderr = result.stderr[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
-            exit_code = result.returncode
-
-            # gcc writes compile errors to stderr and exits non-zero before
-            # producing a binary.  We surface that as compile_error.
-            compile_error = None
-            if exit_code != 0 and _looks_like_compile_error(stderr):
-                compile_error = stderr
-                stderr = ""
-
-            return {
-                "stdout": stdout,
-                "stderr": stderr,
-                "exit_code": exit_code,
-                "compile_error": compile_error,
-                "elapsed_ms": elapsed_ms,
-            }
-
-        except subprocess.TimeoutExpired:
-            _kill_container(container_name)
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            return {
-                "stdout": "",
-                "stderr": "",
-                "exit_code": -1,
-                "compile_error": None,
-                "elapsed_ms": elapsed_ms,
-                "error": "timeout",
-            }
-        except Exception as exc:
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            return {
-                "stdout": "",
-                "stderr": "",
-                "exit_code": -1,
-                "compile_error": None,
-                "elapsed_ms": elapsed_ms,
-                "error": str(exc),
-            }
-
-
-def _looks_like_compile_error(text: str) -> bool:
-    """Heuristic: gcc compile errors mention 'error:' in stderr."""
-    return "error:" in text or "undefined reference" in text
-
-
-def _kill_container(name: str) -> None:
+    start = time.monotonic()
     try:
-        subprocess.run(
-            ["docker", "kill", name],
-            capture_output=True,
-            timeout=5,
+        response = _lambda_client.invoke(
+            FunctionName=LAMBDA_FUNCTION_NAME,
+            InvocationType="RequestResponse",
+            Payload=payload,
         )
-    except Exception:
-        pass
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # FunctionError is set when Lambda's runtime or the handler itself
+        # threw an unhandled exception (distinct from a non-zero gcc/binary exit).
+        if response.get("FunctionError"):
+            raw = response["Payload"].read().decode("utf-8", errors="replace")
+            return _error_result(f"lambda_error: {raw}", elapsed_ms)
+
+        result = json.loads(response["Payload"].read())
+
+        # Defence-in-depth: cap output size on the API side as well.
+        for key in ("stdout", "stderr"):
+            if isinstance(result.get(key), str):
+                result[key] = result[key][:MAX_OUTPUT_BYTES]
+
+        result.setdefault("elapsed_ms", elapsed_ms)
+        return result
+
+    except Exception as exc:
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        return _error_result(str(exc), elapsed_ms)
+
+
+def _error_result(error: str, elapsed_ms: int) -> dict:
+    return {
+        "stdout":        "",
+        "stderr":        "",
+        "exit_code":     -1,
+        "compile_error": None,
+        "elapsed_ms":    elapsed_ms,
+        "error":         error,
+    }
