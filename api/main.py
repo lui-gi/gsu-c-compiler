@@ -168,6 +168,8 @@ async def ws_compile(websocket: WebSocket):
             resource.setrlimit(resource.RLIMIT_CPU,    (EXEC_TIMEOUT_S, EXEC_TIMEOUT_S + 1))
             resource.setrlimit(resource.RLIMIT_NPROC,  (32, 32))
 
+        WALL_TIMEOUT_S = 120  # interactive programs may wait for user input
+
         proc = await asyncio.create_subprocess_exec(
             binary,
             stdin=asyncio.subprocess.PIPE,
@@ -180,7 +182,7 @@ async def ws_compile(websocket: WebSocket):
         input_task  = asyncio.create_task(_pump_input(websocket, proc))
 
         try:
-            await asyncio.wait_for(output_task, timeout=EXEC_TIMEOUT_S + 2)
+            await asyncio.wait_for(output_task, timeout=WALL_TIMEOUT_S)
         except asyncio.TimeoutError:
             proc.kill()
             with contextlib.suppress(Exception):
