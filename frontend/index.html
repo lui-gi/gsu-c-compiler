@@ -59,8 +59,8 @@
       flex-shrink: 0;
       padding: 0 20px;
       height: 64px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: #111111;
+      border-bottom: 1px solid #222222;
       display: flex;
       align-items: center;
       gap: 16px;
@@ -76,8 +76,8 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #ffffff;
-      box-shadow: 0 0 8px rgba(255,255,255,0.6);
+      background: #0039a6;
+      box-shadow: 0 0 8px rgba(0,57,166,0.8);
       flex-shrink: 0;
     }
 
@@ -85,7 +85,7 @@
       font-family: 'Overpass Mono', monospace;
       font-size: 0.38rem;
       line-height: 1.15;
-      color: #ffffff;
+      color: #0039a6;
       white-space: pre;
       letter-spacing: 0;
       user-select: none;
@@ -94,7 +94,7 @@
     .header-sep {
       width: 1px;
       height: 36px;
-      background: rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.15);
     }
 
     .header-sub {
@@ -365,6 +365,7 @@
   import { keymap } from 'https://esm.sh/@codemirror/view@6';
   import { Prec } from 'https://esm.sh/@codemirror/state@6';
   import { indentWithTab } from 'https://esm.sh/@codemirror/commands@6';
+  import { indentUnit } from 'https://esm.sh/@codemirror/language@6';
 
   const HELLO_WORLD = `#include <stdio.h>
 
@@ -382,6 +383,7 @@ int main() {
     doc: HELLO_WORLD,
     extensions: [
       basicSetup,
+      indentUnit.of("    "),
       cpp(),
       oneDark,
       keymap.of([indentWithTab]),
