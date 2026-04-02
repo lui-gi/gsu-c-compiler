@@ -58,7 +58,7 @@
     header {
       flex-shrink: 0;
       padding: 0 20px;
-      height: 48px;
+      height: 64px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -73,24 +73,27 @@
     }
 
     .header-badge .dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--accent);
       box-shadow: 0 0 8px var(--accent);
+      flex-shrink: 0;
     }
 
-    header h1 {
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+    .figlet-title {
+      font-family: 'Overpass Mono', monospace;
+      font-size: 0.38rem;
+      line-height: 1.15;
       color: var(--accent);
+      white-space: pre;
+      letter-spacing: 0;
+      user-select: none;
     }
 
     .header-sep {
       width: 1px;
-      height: 20px;
+      height: 36px;
       background: var(--border);
     }
 
@@ -318,7 +321,11 @@
   <header>
     <div class="header-badge">
       <div class="dot"></div>
-      <h1>GSU C Compiler</h1>
+      <pre class="figlet-title">   ____ ____  _   _    ____    ____ ___  __  __ ____ ___ _     _____ ____
+  / ___/ ___|| | | |  / ___|  / ___/ _ \|  \/  |  _ \_ _| |   | ____|  _ \
+ | |  _\___ \| | | | | |     | |  | | | | |\/| | |_) | || |   |  _| | |_) |
+ | |_| |___) | |_| | | |___  | |__| |_| | |  | |  __/| || |___| |___|  _ &lt;
+  \____|____/ \___/   \____|  \____\___/|_|  |_|_|  |___|_____|_____|_| \_\</pre>
     </div>
     <div class="header-sep"></div>
     <span class="header-sub">CSC 3320</span>
