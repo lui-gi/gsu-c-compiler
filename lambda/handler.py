@@ -24,6 +24,10 @@ def handler(event, context):
     if not isinstance(code, str):
         return _error_result("invalid payload: 'code' must be a string", 0)
 
+    stdin_data = event.get("stdin", "")
+    if not isinstance(stdin_data, str):
+        stdin_data = ""
+
     job_id  = str(uuid.uuid4())
     workdir = f"/tmp/{job_id}"
     os.makedirs(workdir, exist_ok=True)
@@ -60,6 +64,7 @@ def handler(event, context):
         try:
             run_proc = subprocess.run(
                 [binary],
+                input=stdin_data.encode("utf-8", errors="replace"),
                 capture_output=True,
                 timeout=EXEC_TIMEOUT_S,
             )

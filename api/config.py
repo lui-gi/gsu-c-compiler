@@ -2,6 +2,7 @@ import os
 
 MAX_CODE_SIZE_BYTES  = 50_000   # 50 KB source limit
 MAX_OUTPUT_BYTES     = 65_536   # 64 KB output cap
+MAX_STDIN_BYTES      = 65_536   # 64 KB stdin cap
 COMPILE_TIMEOUT_S    = int(os.getenv("TIMEOUT_SECONDS", "10"))
 EXEC_TIMEOUT_S       = 5
 API_RATE_LIMIT       = f"{os.getenv('RATE_LIMIT', '10')}/minute"

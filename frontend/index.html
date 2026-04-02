@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Recursive:MONO@1&family=Overpass+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://esm.sh/@xterm/xterm@5.3.0/css/xterm.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -155,8 +156,8 @@
       min-height: 60px;
     }
 
-    #editor-pane { flex: 3; }   /* default ratio 3:2 */
-    #output-pane { flex: 2; }
+    #editor-pane  { flex: 3; }   /* default ratio 3:2 */
+    #terminal-pane { flex: 2; }
 
     .pane-header {
       flex-shrink: 0;
@@ -240,58 +241,22 @@
       width: 60px;
     }
 
-    /* ── Output ───────────────────────────────────────────── */
-    #output {
+    /* ── Terminal ─────────────────────────────────────────── */
+    #terminal-container {
       flex: 1;
-      padding: 14px 18px;
-      font-family: 'Overpass Mono', monospace;
-      font-size: 0.82rem;
-      line-height: 1.6;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
+      overflow: hidden;
       background: #000000;
+      padding: 6px 8px;
     }
 
-    .out-section { margin-bottom: 16px; }
-
-    .out-label {
-      display: inline-block;
-      font-size: 0.62rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-      padding: 2px 8px;
-      border-radius: 2px;
+    /* xterm.js overrides */
+    #terminal-container .xterm {
+      height: 100%;
     }
 
-    .out-label.stdout { color: var(--green);    background: color-mix(in srgb, var(--green) 12%, transparent); }
-    .out-label.stderr { color: var(--red);      background: color-mix(in srgb, var(--red)   12%, transparent); }
-    .out-label.meta   { color: var(--accent);   background: color-mix(in srgb, var(--accent) 12%, transparent); }
-
-    .out-empty     { color: var(--muted); font-style: italic; }
-    .out-error     { color: var(--red); }
-    .out-placeholder { color: var(--muted); font-style: italic; }
-
-    .out-meta-row  { display: flex; gap: 20px; }
-    .out-meta-item { color: var(--text-dim); }
-    .out-meta-item span { font-weight: 600; }
-    .out-meta-item span.ok  { color: var(--green); }
-    .out-meta-item span.err { color: var(--red); }
-
-    /* ── Fade-in animation for output sections ────────────── */
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    #terminal-container .xterm-viewport {
+      background: #000000 !important;
     }
-
-    .out-section {
-      animation: fadeSlideIn 0.2s ease both;
-    }
-
-    .out-section:nth-child(2) { animation-delay: 0.05s; }
-    .out-section:nth-child(3) { animation-delay: 0.10s; }
   </style>
 </head>
 <body>
@@ -324,13 +289,11 @@
 
     <div id="resizer"></div>
 
-    <div class="pane" id="output-pane">
+    <div class="pane" id="terminal-pane">
       <div class="pane-header">
-        <span class="pane-title">Output</span>
+        <span class="pane-title">Terminal</span>
       </div>
-      <div id="output">
-        <span class="out-placeholder">Click Run (or press Ctrl+Enter) to compile and execute your program.</span>
-      </div>
+      <div id="terminal-container"></div>
     </div>
   </div>
 
@@ -344,6 +307,8 @@
   import { Prec } from 'https://esm.sh/@codemirror/state@6';
   import { indentWithTab } from 'https://esm.sh/@codemirror/commands@6';
   import { indentUnit } from 'https://esm.sh/@codemirror/language@6';
+  import { Terminal } from 'https://esm.sh/@xterm/xterm@5.3.0';
+  import { FitAddon } from 'https://esm.sh/@xterm/addon-fit@0.8.0';
 
   const HELLO_WORLD = `#include <stdio.h>
 
@@ -353,10 +318,10 @@ int main() {
 }
 `;
 
-  const runBtn  = document.getElementById('run-btn');
-  const output  = document.getElementById('output');
-  const status  = document.getElementById('status');
+  const runBtn = document.getElementById('run-btn');
+  const status = document.getElementById('status');
 
+  // ── CodeMirror editor ────────────────────────────────────
   const view = new EditorView({
     doc: HELLO_WORLD,
     extensions: [
@@ -370,11 +335,42 @@ int main() {
     parent: document.getElementById('editor-container'),
   });
 
+  // ── xterm.js terminal ────────────────────────────────────
+  const term = new Terminal({
+    theme: {
+      background:    '#000000',
+      foreground:    '#CBD5E1',
+      cursor:        '#38BDF8',
+      cursorAccent:  '#000000',
+      selectionBackground: 'rgba(56,189,248,0.3)',
+      black:   '#1a1a1a',
+      red:     '#F87171',
+      green:   '#34D399',
+      yellow:  '#FBBF24',
+      blue:    '#60A5FA',
+      magenta: '#C084FC',
+      cyan:    '#38BDF8',
+      white:   '#CBD5E1',
+    },
+    fontFamily: "'Overpass Mono', 'Courier New', monospace",
+    fontSize: 13,
+    lineHeight: 1.5,
+    cursorBlink: true,
+    scrollback: 1000,
+  });
+
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('terminal-container'));
+  fitAddon.fit();
+
+  term.writeln('\x1b[2mReady. Press \x1b[0mRun\x1b[2m or Ctrl+Enter to compile and run your program.\x1b[0m');
+
   // ── Resizable split ──────────────────────────────────────
-  const resizer    = document.getElementById('resizer');
-  const workspace  = document.getElementById('workspace');
-  const editorPane = document.getElementById('editor-pane');
-  const outputPane = document.getElementById('output-pane');
+  const resizer      = document.getElementById('resizer');
+  const workspace    = document.getElementById('workspace');
+  const editorPane   = document.getElementById('editor-pane');
+  const terminalPane = document.getElementById('terminal-pane');
 
   let dragging = false;
 
@@ -388,20 +384,20 @@ int main() {
 
   document.addEventListener('mousemove', e => {
     if (!dragging) return;
-    const rect = workspace.getBoundingClientRect();
+    const rect    = workspace.getBoundingClientRect();
     const resizerH = resizer.offsetHeight;
     const headerH  = document.querySelector('#editor-pane .pane-header').offsetHeight;
-    const outheaderH = document.querySelector('#output-pane .pane-header').offsetHeight;
-    const totalH = rect.height - resizerH;
-    const minTop = headerH + 40;
-    const minBot = outheaderH + 40;
-    let editorH = e.clientY - rect.top;
+    const termHeaderH = document.querySelector('#terminal-pane .pane-header').offsetHeight;
+    const totalH  = rect.height - resizerH;
+    const minTop  = headerH + 40;
+    const minBot  = termHeaderH + 40;
+    let editorH   = e.clientY - rect.top;
     editorH = Math.max(minTop, Math.min(totalH - minBot, editorH));
-    const outputH = totalH - editorH;
-    editorPane.style.flex = 'none';
+    editorPane.style.flex   = 'none';
     editorPane.style.height = editorH + 'px';
-    outputPane.style.flex = 'none';
-    outputPane.style.height = outputH + 'px';
+    terminalPane.style.flex   = 'none';
+    terminalPane.style.height = (totalH - editorH) + 'px';
+    fitAddon.fit();
   });
 
   document.addEventListener('mouseup', () => {
@@ -410,80 +406,76 @@ int main() {
     resizer.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    fitAddon.fit();
   });
 
-  // ── Compile & run ────────────────────────────────────────
-  function escHtml(str) {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
+  // Refit terminal on window resize
+  window.addEventListener('resize', () => fitAddon.fit());
 
-  function renderOutput(data) {
-    const ok = data.exit_code === 0;
-
-    const stdoutHtml =
-      `<div class="out-section">` +
-      `<div class="out-label stdout">stdout</div>` +
-      `<div>${data.stdout ? escHtml(data.stdout) : '<span class="out-empty">(empty)</span>'}</div>` +
-      `</div>`;
-
-    const stderrHtml =
-      `<div class="out-section">` +
-      `<div class="out-label stderr">stderr</div>` +
-      `<div>${data.stderr ? escHtml(data.stderr) : '<span class="out-empty">(empty)</span>'}</div>` +
-      `</div>`;
-
-    const exitClass = ok ? 'ok' : 'err';
-    const metaHtml =
-      `<div class="out-section">` +
-      `<div class="out-label meta">info</div>` +
-      `<div class="out-meta-row">` +
-      `<div class="out-meta-item">exit&nbsp;<span class="${exitClass}">${data.exit_code}</span></div>` +
-      (data.elapsed_ms !== undefined
-        ? `<div class="out-meta-item">elapsed&nbsp;<span>${data.elapsed_ms}&thinsp;ms</span></div>`
-        : '') +
-      `</div></div>`;
-
-    output.innerHTML = stdoutHtml + stderrHtml + metaHtml;
-  }
+  // ── WebSocket compile & run ──────────────────────────────
+  let activeWs = null;
 
   function setStatus(text, cls) {
     status.textContent = text;
     status.className = cls || '';
   }
 
-  runBtn.addEventListener('click', async () => {
-    const code = view.state.doc.toString();
-    runBtn.disabled = true;
-    setStatus('Compiling…', '');
-    output.innerHTML = '<span class="out-placeholder">Running…</span>';
-
-    try {
-      const res = await fetch('/compile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        output.innerHTML = `<span class="out-error">HTTP ${res.status}: ${escHtml(text)}</span>`;
-        setStatus('Error', 'err');
-        return;
-      }
-
-      const data = await res.json();
-      renderOutput(data);
-      const ok = data.exit_code === 0;
-      setStatus(`Done · ${data.elapsed_ms ?? '?'} ms`, ok ? 'ok' : 'err');
-    } catch (err) {
-      output.innerHTML = `<span class="out-error">Network error: ${escHtml(err.message)}</span>`;
-      setStatus('Failed', 'err');
-    } finally {
-      runBtn.disabled = false;
+  function openRun(code) {
+    // Close any previous session
+    if (activeWs) {
+      activeWs.onclose = null;
+      activeWs.close();
+      activeWs = null;
     }
+
+    term.reset();
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws/compile`);
+    ws.binaryType = 'arraybuffer';
+    activeWs = ws;
+
+    runBtn.disabled = true;
+    setStatus('Running…', '');
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ code }));
+    };
+
+    ws.onmessage = e => {
+      if (e.data instanceof ArrayBuffer) {
+        // Raw process output — convert \n → \r\n for terminal display
+        const text = new TextDecoder().decode(e.data);
+        term.write(text.replace(/\r?\n/g, '\r\n'));
+      } else {
+        // Control/status messages from the server (compile errors, exit notice)
+        term.write(e.data.replace(/\r?\n/g, '\r\n'));
+      }
+    };
+
+    ws.onclose = () => {
+      activeWs = null;
+      runBtn.disabled = false;
+      setStatus('Done', '');
+    };
+
+    ws.onerror = () => {
+      term.writeln('\r\n\x1b[31mWebSocket error — is the server running?\x1b[0m');
+      runBtn.disabled = false;
+      setStatus('Error', 'err');
+    };
+
+    // Forward terminal keystrokes → process stdin
+    term.onData(data => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(new TextEncoder().encode(data));
+      }
+    });
+  }
+
+  runBtn.addEventListener('click', () => {
+    openRun(view.state.doc.toString());
+    term.focus();
   });
 </script>
 </body>

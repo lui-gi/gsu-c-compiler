@@ -28,12 +28,12 @@ _lambda_client = boto3.client(
 )
 
 
-def run_in_sandbox(code: str) -> dict:
+def run_in_sandbox(code: str, stdin: str = "") -> dict:
     """
     Invoke the Lambda compiler function synchronously and return a result dict
     with keys: stdout, stderr, exit_code, compile_error, elapsed_ms.
     """
-    payload = json.dumps({"code": code}).encode()
+    payload = json.dumps({"code": code, "stdin": stdin}).encode()
 
     start = time.monotonic()
     try:
