@@ -465,9 +465,17 @@ int main() {
       setStatus('Error', 'err');
     };
 
-    // Forward terminal keystrokes → process stdin
+    // Forward terminal keystrokes → process stdin (with local echo)
     term.onData(data => {
       if (ws.readyState === WebSocket.OPEN) {
+        // Local echo: mirror what the user types back to the terminal
+        if (data === '\r') {
+          term.write('\r\n');
+        } else if (data === '\x7f') {
+          term.write('\b \b');  // backspace: move left, erase, move left
+        } else {
+          term.write(data);
+        }
         ws.send(new TextEncoder().encode(data));
       }
     });
