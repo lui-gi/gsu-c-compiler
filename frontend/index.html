@@ -4,143 +4,359 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GSU C Compiler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Recursive:MONO@1&family=Overpass+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: system-ui, sans-serif;
-      background: #1e1e2e;
-      color: #cdd6f4;
-      height: 100vh;
+    :root {
+      --bg:         #070A12;
+      --surface:    #0C1120;
+      --surface2:   #111827;
+      --border:     #1E2D45;
+      --border2:    #2A3F5C;
+      --accent:     #38BDF8;
+      --accent-dim: #1E4E6E;
+      --green:      #34D399;
+      --red:        #F87171;
+      --muted:      #4A5568;
+      --text:       #CBD5E1;
+      --text-dim:   #64748B;
+      --label:      'Recursive', 'Overpass Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--label);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* Subtle dot-grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, #1E2D45 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100%;
       display: flex;
       flex-direction: column;
     }
 
+    /* ── Header ────────────────────────────────────────────── */
     header {
-      padding: 12px 20px;
-      background: #181825;
-      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+      padding: 0 20px;
+      height: 48px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 16px;
     }
 
-    header h1 { font-size: 1rem; font-weight: 600; color: #cba6f7; }
-
-    #run-btn {
-      padding: 6px 20px;
-      background: #a6e3a1;
-      color: #1e1e2e;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
+    .header-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    #run-btn:hover { background: #94d89f; }
-    #run-btn:disabled { background: #45475a; color: #6c7086; cursor: not-allowed; }
+    .header-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    header h1 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .header-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    .header-sub {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .spacer { flex: 1; }
 
     #status {
-      font-size: 0.8rem;
-      color: #6c7086;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+      transition: color 0.3s;
     }
 
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
+    #status.ok  { color: var(--green); }
+    #status.err { color: var(--red); }
+
+    #run-btn {
+      padding: 6px 18px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      font-family: var(--label);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      position: relative;
       overflow: hidden;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
     }
 
-    @media (max-width: 768px) {
-      main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    #run-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent);
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      z-index: -1;
     }
 
+    #run-btn:hover {
+      color: var(--bg);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+
+    #run-btn:hover::before { transform: translateX(0); }
+
+    #run-btn:disabled {
+      border-color: var(--muted);
+      color: var(--muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #run-btn:disabled::before { display: none; }
+
+    /* ── Workspace (resizable split) ─────────────────────── */
+    #workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── Pane shared ──────────────────────────────────────── */
     .pane {
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border-right: 1px solid #313244;
+      min-height: 60px;
     }
 
-    .pane:last-child { border-right: none; }
+    #editor-pane { flex: 3; }   /* default ratio 3:2 */
+    #output-pane { flex: 2; }
 
-    .pane-label {
-      padding: 6px 12px;
-      font-size: 0.75rem;
+    .pane-header {
+      flex-shrink: 0;
+      height: 30px;
+      padding: 0 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pane-title {
+      font-size: 0.68rem;
       font-weight: 600;
-      color: #6c7086;
-      background: #181825;
-      border-bottom: 1px solid #313244;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .pane-filename {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .pane-hint {
+      margin-left: auto;
+      font-size: 0.62rem;
+      color: var(--muted);
       letter-spacing: 0.05em;
     }
 
+    /* ── Editor ───────────────────────────────────────────── */
     #editor-container {
       flex: 1;
       overflow: auto;
     }
 
-    /* CodeMirror theme overrides */
-    .cm-editor { height: 100%; font-size: 0.9rem; }
-    .cm-scroller { overflow: auto; }
-    .cm-focused { outline: none; }
+    .cm-editor {
+      height: 100%;
+      font-size: 0.875rem;
+      background: transparent !important;
+    }
 
+    .cm-scroller { overflow: auto; }
+    .cm-focused { outline: none !important; }
+
+    .cm-editor .cm-content { caret-color: var(--accent); }
+
+    /* ── Resize Handle ────────────────────────────────────── */
+    #resizer {
+      flex-shrink: 0;
+      height: 6px;
+      background: var(--border);
+      cursor: ns-resize;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    #resizer::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--border2);
+      transition: background 0.15s, width 0.15s;
+    }
+
+    #resizer:hover,
+    #resizer.dragging {
+      background: var(--accent-dim);
+    }
+
+    #resizer:hover::after,
+    #resizer.dragging::after {
+      background: var(--accent);
+      width: 60px;
+    }
+
+    /* ── Output ───────────────────────────────────────────── */
     #output {
       flex: 1;
-      padding: 12px 16px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.85rem;
+      padding: 14px 18px;
+      font-family: 'Overpass Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
-      background: #11111b;
-      color: #cdd6f4;
+      background: #060912;
     }
 
-    #output .label {
-      font-weight: 700;
-      font-size: 0.75rem;
+    .out-section { margin-bottom: 16px; }
+
+    .out-label {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
+      padding: 2px 8px;
+      border-radius: 2px;
     }
 
-    #output .section { margin-bottom: 14px; }
-    #output .label.stdout { color: #a6e3a1; }
-    #output .label.stderr { color: #f38ba8; }
-    #output .label.meta   { color: #89b4fa; }
-    #output .empty        { color: #45475a; font-style: italic; }
-    #output .error-msg    { color: #f38ba8; }
-    #output .placeholder  { color: #45475a; font-style: italic; }
+    .out-label.stdout { color: var(--green);    background: color-mix(in srgb, var(--green) 12%, transparent); }
+    .out-label.stderr { color: var(--red);      background: color-mix(in srgb, var(--red)   12%, transparent); }
+    .out-label.meta   { color: var(--accent);   background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+    .out-empty     { color: var(--muted); font-style: italic; }
+    .out-error     { color: var(--red); }
+    .out-placeholder { color: var(--muted); font-style: italic; }
+
+    .out-meta-row  { display: flex; gap: 20px; }
+    .out-meta-item { color: var(--text-dim); }
+    .out-meta-item span { font-weight: 600; }
+    .out-meta-item span.ok  { color: var(--green); }
+    .out-meta-item span.err { color: var(--red); }
+
+    /* ── Fade-in animation for output sections ────────────── */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .out-section {
+      animation: fadeSlideIn 0.2s ease both;
+    }
+
+    .out-section:nth-child(2) { animation-delay: 0.05s; }
+    .out-section:nth-child(3) { animation-delay: 0.10s; }
   </style>
 </head>
 <body>
+<div id="app">
 
-<header>
-  <h1>GSU C Compiler</h1>
-  <button id="run-btn">Run</button>
-  <span id="status"></span>
-</header>
+  <header>
+    <div class="header-badge">
+      <div class="dot"></div>
+      <h1>GSU C Compiler</h1>
+    </div>
+    <div class="header-sep"></div>
+    <span class="header-sub">CSC 3320</span>
+    <div class="spacer"></div>
+    <span id="status"></span>
+    <button id="run-btn">Run</button>
+  </header>
 
-<main>
-  <div class="pane">
-    <div class="pane-label">Source — main.c</div>
-    <div id="editor-container"></div>
+  <div id="workspace">
+    <div class="pane" id="editor-pane">
+      <div class="pane-header">
+        <span class="pane-title">Editor</span>
+        <span class="pane-filename">main.c</span>
+        <span class="pane-hint">Ctrl+Enter to run</span>
+      </div>
+      <div id="editor-container"></div>
+    </div>
+
+    <div id="resizer"></div>
+
+    <div class="pane" id="output-pane">
+      <div class="pane-header">
+        <span class="pane-title">Output</span>
+      </div>
+      <div id="output">
+        <span class="out-placeholder">Click Run (or press Ctrl+Enter) to compile and execute your program.</span>
+      </div>
+    </div>
   </div>
 
-  <div class="pane">
-    <div class="pane-label">Output</div>
-    <div id="output"><span class="placeholder">Click Run to compile and execute your program.</span></div>
-  </div>
-</main>
+</div>
 
 <script type="module">
   import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6.0.1';
   import { cpp } from 'https://esm.sh/@codemirror/lang-cpp@6.0.2';
   import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
+  import { keymap } from 'https://esm.sh/@codemirror/view@6';
+  import { Prec } from 'https://esm.sh/@codemirror/state@6';
 
   const HELLO_WORLD = `#include <stdio.h>
 
@@ -150,46 +366,64 @@ int main() {
 }
 `;
 
+  const runBtn  = document.getElementById('run-btn');
+  const output  = document.getElementById('output');
+  const status  = document.getElementById('status');
+
   const view = new EditorView({
     doc: HELLO_WORLD,
-    extensions: [basicSetup, cpp(), oneDark],
+    extensions: [
+      basicSetup,
+      cpp(),
+      oneDark,
+      Prec.highest(keymap.of([{ key: 'Ctrl-Enter', run: () => { runBtn.click(); return true; } }])),
+    ],
     parent: document.getElementById('editor-container'),
   });
 
-  const runBtn   = document.getElementById('run-btn');
-  const output   = document.getElementById('output');
-  const status   = document.getElementById('status');
+  // ── Resizable split ──────────────────────────────────────
+  const resizer    = document.getElementById('resizer');
+  const workspace  = document.getElementById('workspace');
+  const editorPane = document.getElementById('editor-pane');
+  const outputPane = document.getElementById('output-pane');
 
-  function renderOutput(data) {
-    const sections = [];
+  let dragging = false;
 
-    sections.push(
-      `<div class="section">` +
-      `<div class="label stdout">stdout</div>` +
-      `<div>${data.stdout ? escHtml(data.stdout) : '<span class="empty">(empty)</span>'}</div>` +
-      `</div>`
-    );
+  resizer.addEventListener('mousedown', e => {
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
 
-    sections.push(
-      `<div class="section">` +
-      `<div class="label stderr">stderr</div>` +
-      `<div>${data.stderr ? escHtml(data.stderr) : '<span class="empty">(empty)</span>'}</div>` +
-      `</div>`
-    );
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = workspace.getBoundingClientRect();
+    const resizerH = resizer.offsetHeight;
+    const headerH  = document.querySelector('#editor-pane .pane-header').offsetHeight;
+    const outheaderH = document.querySelector('#output-pane .pane-header').offsetHeight;
+    const totalH = rect.height - resizerH;
+    const minTop = headerH + 40;
+    const minBot = outheaderH + 40;
+    let editorH = e.clientY - rect.top;
+    editorH = Math.max(minTop, Math.min(totalH - minBot, editorH));
+    const outputH = totalH - editorH;
+    editorPane.style.flex = 'none';
+    editorPane.style.height = editorH + 'px';
+    outputPane.style.flex = 'none';
+    outputPane.style.height = outputH + 'px';
+  });
 
-    const exitColor = data.exit_code === 0 ? '#a6e3a1' : '#f38ba8';
-    sections.push(
-      `<div class="section">` +
-      `<div class="label meta">info</div>` +
-      `<div>exit code: <span style="color:${exitColor}">${data.exit_code}</span>` +
-      (data.elapsed_ms !== undefined ? `  &nbsp; elapsed: ${data.elapsed_ms} ms` : '') +
-      `</div>` +
-      `</div>`
-    );
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
 
-    output.innerHTML = sections.join('');
-  }
-
+  // ── Compile & run ────────────────────────────────────────
   function escHtml(str) {
     return str
       .replace(/&/g, '&amp;')
@@ -197,12 +431,45 @@ int main() {
       .replace(/>/g, '&gt;');
   }
 
+  function renderOutput(data) {
+    const ok = data.exit_code === 0;
+
+    const stdoutHtml =
+      `<div class="out-section">` +
+      `<div class="out-label stdout">stdout</div>` +
+      `<div>${data.stdout ? escHtml(data.stdout) : '<span class="out-empty">(empty)</span>'}</div>` +
+      `</div>`;
+
+    const stderrHtml =
+      `<div class="out-section">` +
+      `<div class="out-label stderr">stderr</div>` +
+      `<div>${data.stderr ? escHtml(data.stderr) : '<span class="out-empty">(empty)</span>'}</div>` +
+      `</div>`;
+
+    const exitClass = ok ? 'ok' : 'err';
+    const metaHtml =
+      `<div class="out-section">` +
+      `<div class="out-label meta">info</div>` +
+      `<div class="out-meta-row">` +
+      `<div class="out-meta-item">exit&nbsp;<span class="${exitClass}">${data.exit_code}</span></div>` +
+      (data.elapsed_ms !== undefined
+        ? `<div class="out-meta-item">elapsed&nbsp;<span>${data.elapsed_ms}&thinsp;ms</span></div>`
+        : '') +
+      `</div></div>`;
+
+    output.innerHTML = stdoutHtml + stderrHtml + metaHtml;
+  }
+
+  function setStatus(text, cls) {
+    status.textContent = text;
+    status.className = cls || '';
+  }
+
   runBtn.addEventListener('click', async () => {
     const code = view.state.doc.toString();
-
     runBtn.disabled = true;
-    status.textContent = 'Compiling…';
-    output.innerHTML = '<span class="placeholder">Running…</span>';
+    setStatus('Compiling…', '');
+    output.innerHTML = '<span class="out-placeholder">Running…</span>';
 
     try {
       const res = await fetch('/compile', {
@@ -213,17 +480,18 @@ int main() {
 
       if (!res.ok) {
         const text = await res.text().catch(() => res.statusText);
-        output.innerHTML = `<span class="error-msg">HTTP ${res.status}: ${escHtml(text)}</span>`;
-        status.textContent = 'Error';
+        output.innerHTML = `<span class="out-error">HTTP ${res.status}: ${escHtml(text)}</span>`;
+        setStatus('Error', 'err');
         return;
       }
 
       const data = await res.json();
       renderOutput(data);
-      status.textContent = `Done (${data.elapsed_ms ?? '?'} ms)`;
+      const ok = data.exit_code === 0;
+      setStatus(`Done · ${data.elapsed_ms ?? '?'} ms`, ok ? 'ok' : 'err');
     } catch (err) {
-      output.innerHTML = `<span class="error-msg">Network error: ${escHtml(err.message)}</span>`;
-      status.textContent = 'Failed';
+      output.innerHTML = `<span class="out-error">Network error: ${escHtml(err.message)}</span>`;
+      setStatus('Failed', 'err');
     } finally {
       runBtn.disabled = false;
     }
