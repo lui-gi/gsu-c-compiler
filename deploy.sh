@@ -65,6 +65,7 @@ aws ecr get-login-password --region "$REGION" | \
 echo "==> Building Lambda image..."
 docker build \
     --platform linux/amd64 \
+    --provenance=false \
     -t "${ECR_REPO}:${IMAGE_TAG}" \
     ./lambda
 
@@ -108,8 +109,8 @@ aws iam attach-role-policy \
     2>/dev/null || true
 
 echo "==> Role ARN: $ROLE_ARN"
-# IAM is eventually consistent; pause briefly after role creation.
-sleep 5
+# IAM is eventually consistent; new roles can take 10-15s to propagate.
+sleep 15
 
 # ── 6. Create or update the Lambda function ───────────────────────────────────
 echo "==> Deploying Lambda function..."
@@ -148,12 +149,13 @@ else
 fi
 
 # ── 7. Cap concurrency to limit blast radius from network-capable student code ─
-echo "==> Setting reserved concurrency to 10..."
+echo "==> Setting reserved concurrency to 2..."
 aws lambda put-function-concurrency \
     --function-name "$FUNCTION_NAME" \
     --region "$REGION" \
-    --reserved-concurrent-executions 10 \
-    --output table
+    --reserved-concurrent-executions 2 \
+    --output table || \
+    echo "WARNING: Could not set reserved concurrency (account unreserved minimum would be exceeded). Function will use unreserved concurrency pool."
 
 # ── 8. Smoke test ─────────────────────────────────────────────────────────────
 echo "==> Running smoke test..."
