@@ -72,20 +72,11 @@
       gap: 10px;
     }
 
-    .header-badge .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #0039a6;
-      box-shadow: 0 0 8px rgba(0,57,166,0.8);
-      flex-shrink: 0;
-    }
-
-    .figlet-title {
+.figlet-title {
       font-family: 'Overpass Mono', monospace;
       font-size: 0.38rem;
       line-height: 1.15;
-      color: #0039a6;
+      color: #4d80d4;
       white-space: pre;
       letter-spacing: 0;
       user-select: none;
@@ -118,9 +109,9 @@
 
     #run-btn {
       padding: 6px 18px;
-      background: transparent;
+      background: #0039a6;
       color: #ffffff;
-      border: 1px solid rgba(255,255,255,0.7);
+      border: 1px solid #0039a6;
       border-radius: 4px;
       font-family: var(--label);
       font-size: 0.75rem;
@@ -130,34 +121,22 @@
       cursor: pointer;
       position: relative;
       overflow: hidden;
-      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-    }
-
-    #run-btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: #ffffff;
-      transform: translateX(-100%);
-      transition: transform 0.2s ease;
-      z-index: -1;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
 
     #run-btn:hover {
-      color: #0039a6;
-      box-shadow: 0 0 16px rgba(255,255,255,0.3);
+      background: #1a52c4;
+      border-color: #1a52c4;
+      box-shadow: 0 0 16px rgba(0,57,166,0.5);
     }
 
-    #run-btn:hover::before { transform: translateX(0); }
-
     #run-btn:disabled {
-      border-color: rgba(255,255,255,0.25);
-      color: rgba(255,255,255,0.3);
+      background: rgba(0,57,166,0.3);
+      border-color: rgba(0,57,166,0.3);
+      color: rgba(255,255,255,0.35);
       cursor: not-allowed;
       box-shadow: none;
     }
-
-    #run-btn:disabled::before { display: none; }
 
     /* ── Workspace (resizable split) ─────────────────────── */
     #workspace {
@@ -320,7 +299,6 @@
 
   <header>
     <div class="header-badge">
-      <div class="dot"></div>
       <pre class="figlet-title">   ____ ____  _   _    ____    ____ ___  __  __ ____ ___ _     _____ ____
   / ___/ ___|| | | |  / ___|  / ___/ _ \|  \/  |  _ \_ _| |   | ____|  _ \
  | |  _\___ \| | | | | |     | |  | | | | |\/| | |_) | || |   |  _| | |_) |
