@@ -16,6 +16,43 @@ The editor is at `http://localhost:3000`. Write C code, press **Run** (or `Ctrl+
 
 ## Architecture
 
+```mermaid
+graph TB
+    subgraph browser["Browser"]
+        editor["CodeMirror\nEditor"]
+        terminal["xterm.js\nTerminal"]
+    end
+
+    nginx["Nginx :3000\nReverse Proxy"]
+
+    subgraph api["API Container :8000"]
+        fastapi["FastAPI + Uvicorn\nRate Limiter · CORS · Validation"]
+        ws_handler["WebSocket Handler\n/ws/compile"]
+        http_handler["HTTP Handler\n/compile"]
+        gcc["GCC Sandbox\ngcc → a.out\n64 MB · 5s CPU · 32 procs"]
+        lambda_client["boto3 Lambda Client"]
+    end
+
+    subgraph aws["AWS (Optional)"]
+        lambda["Lambda gcc-sandbox\nECR Container Image"]
+        cloudwatch["CloudWatch Logs"]
+    end
+
+    editor -- "C code (WebSocket)" --> nginx
+    terminal -- "stdin keystrokes (WebSocket)" --> nginx
+    nginx -- "WS /ws/compile" --> fastapi
+    nginx -- "POST /compile" --> fastapi
+    fastapi --> ws_handler
+    fastapi --> http_handler
+    ws_handler --> gcc
+    http_handler --> lambda_client
+    gcc -- "stdout/stderr (streaming)" --> terminal
+    lambda_client --> lambda
+    lambda -- "JSON response" --> http_handler
+    lambda --> cloudwatch
+    http_handler -- "JSON stdout/stderr/exit_code" --> nginx
+```
+
 Two execution paths exist:
 
 **WebSocket path (interactive terminal)** — used by the browser UI:
