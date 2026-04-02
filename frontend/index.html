@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Recursive:MONO@1&family=Overpass+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://esm.sh/@xterm/xterm@5.3.0/css/xterm.css" />
+  <link rel="stylesheet" href="https://unpkg.com/xterm@5.3.0/css/xterm.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -307,8 +307,8 @@
   import { Prec } from 'https://esm.sh/@codemirror/state@6';
   import { indentWithTab } from 'https://esm.sh/@codemirror/commands@6';
   import { indentUnit } from 'https://esm.sh/@codemirror/language@6';
-  import { Terminal } from 'https://esm.sh/@xterm/xterm@5.3.0';
-  import { FitAddon } from 'https://esm.sh/@xterm/addon-fit@0.8.0';
+  import { Terminal } from 'https://esm.sh/xterm@5.3.0';
+  import { FitAddon } from 'https://esm.sh/xterm-addon-fit@0.8.0';
 
   const HELLO_WORLD = `#include <stdio.h>
 
